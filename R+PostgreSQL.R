@@ -4,13 +4,13 @@
 rm(list=ls())
 gc()
 ###############################################
-############Preparação dos pacotes#############
+############PreparaÃ§Ã£o dos pacotes#############
 ###############################################
 # Selecioanar uma CRAN mirror
 local({r <- getOption("repos")
 r["CRAN"] <- "https://vps.fmvz.usp.br/CRAN/"
 options(repos=r)})
-#Função que carrega e requere os pacotes em silêncio 
+#FunÃ§Ã£o que carrega e requere os pacotes em silÃªncio 
 Install_And_Load <- function(Required_Packages)
 {
   Remaining_Packages <- Required_Packages[!(Required_Packages %in% installed.packages()[,"Package"])];
@@ -38,11 +38,11 @@ options(scipen = 9999,digits = 10)
 ##############################################################################################
 
 #########################################
-###Definindo os paramentros da conexão###
+###Definindo os paramentros da conexÃ£o###
 #########################################
 
 Usuario<-'postgres'
-Senha<-'iron6669'
+Senha<-'Minha senha padrÃ£o'
 Host<-'localhost'
 NomeDB<-'NYC_Taxi_Trip'
 
@@ -52,13 +52,13 @@ NomeDB<-'NYC_Taxi_Trip'
 drv <- dbDriver("PostgreSQL")
 
 #######################################
-###Estabelecendo coneção com o banco###
+###Estabelecendo coneÃ§Ã£o com o banco###
 #######################################
 con <- dbConnect(drv, dbname = NomeDB,
                  host = Host, port = 5432,
                  user = Usuario, password = Senha)
 ###############################
-##Informações sobre a conexão##
+##InformaÃ§Ãµes sobre a conexÃ£o##
 ###############################
 dbGetInfo(con)
 
@@ -84,7 +84,7 @@ str(Base_1)
 
 
 ###################################################
-###Fechando a conexão e descarregando os drivers###
+###Fechando a conexÃ£o e descarregando os drivers###
 ###################################################
 
 dbDisconnect(con)
