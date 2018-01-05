@@ -42,7 +42,7 @@ options(scipen = 9999,digits = 10)
 #########################################
 
 Usuario<-'postgres'
-Senha<-'Minha senha padrão'
+Senha<-'senha'
 Host<-'localhost'
 NomeDB<-'NYC_Taxi_Trip'
 
