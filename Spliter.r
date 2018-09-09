@@ -1,5 +1,6 @@
-Spliter<-function(TrainDataBase,TestDataBase,Vars,Target,Weights){
-  
+Spliter<-function(TrainDataBase,TestDataBase,Vars,Target,IDs_Var){
+  Split_Out<-matrix(0,ncol=2,nrow=length(Vars))
+  colnames(Split_Out)<-c('Vars','Split')
   formulas<-paste(Target,Vars,sep ='~')
   for(i in 1:length(Vars))
   {
@@ -11,6 +12,7 @@ Spliter<-function(TrainDataBase,TestDataBase,Vars,Target,Weights){
                     control=list(maxdepth = 2))
     
     Splits<-Tree.Vars$splits[,4] %>% sort
+    Split_Out[i,]<-c(Vars[i],paste(Splits,collapse = " - "))
     if (length(Splits)==1) {
       conds<-paste(Vars[i],Splits,sep = '<')
       #IfElse<-paste(paste('if_else(is.na(',Vars[i],"),0,",sep=""),paste('if_else(',paste(eval(parse(text=conds)),"1","2",sep=','),')',sep=""),sep="")
@@ -41,5 +43,7 @@ Spliter<-function(TrainDataBase,TestDataBase,Vars,Target,Weights){
       mutate(eval(parse(text = Mutate)))->TestDataBase
     names(TestDataBase)[names(TestDataBase)=="eval(parse(text = Mutate))"] <- paste("Cat",Vars[i],sep="_")
   }
-  return(list(Train=TrainDataBase,Test=TestDataBase))
+  TrainDataBase%>%select(c(IDs_Var,Target,starts_with('Cat')))->TrainDataBase
+  TestDataBase%>%select(c(IDs_Var,Target,starts_with('Cat')))->TestDataBase
+  return(list(Train=TrainDataBase,Test=TestDataBase,Splits=Split_Out))
 }
