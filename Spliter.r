@@ -4,7 +4,7 @@ Spliter<-function(DataBase,Vars,Target,Weights){
   for(i in 1:length(Vars))
   {
     Tree.Vars<-rpart(formulas[i],
-                    weights = vars(Weights),
+                    weights = Weights,
                     data=DataBase,
                     method = "class",
                     parms = list(split='information'),
@@ -12,8 +12,10 @@ Spliter<-function(DataBase,Vars,Target,Weights){
     
     Splits<-Tree.Vars$splits[,4] %>% sort
     if (length(Splits)==1) {
-      cond<-paste(Vars[i],Splits,sep = '<')
-      IfElse<-paste(paste('if_else(is.na(',Vars[i],"),0,",sep=""),paste('if_else(',paste(eval(parse(text=conds)),"1","2",sep=','),')',sep=""),sep="")
+      conds<-paste(Vars[i],Splits,sep = '<')
+      #IfElse<-paste(paste('if_else(is.na(',Vars[i],"),0,",sep=""),paste('if_else(',paste(eval(parse(text=conds)),"1","2",sep=','),')',sep=""),sep="")
+      IfElse<-paste(paste('if_else(is.na(',Vars[i],"),0,",sep=""),paste('if_else(',conds,",1,2))",sep=''),sep='')
+      Mutate<-paste("factor(",IfElse,",levels=",paste(0,2,sep = ':'),")",sep="")
       } else {
         cond_begin<-paste(Vars[i],Splits[1],sep = '<')
         for(j in 2:length(Splits))
@@ -30,8 +32,8 @@ Spliter<-function(DataBase,Vars,Target,Weights){
           IfElse [j+1]<- paste('if_else(',paste(eval(parse(text = conds[j])),j,sep = ','),sep = "")
           }
         IfElse <- paste(paste(IfElse,collapse  =','),paste(length(conds),paste(rep(")",times=length(conds)),collapse = ''),sep = ''),sep=',')
+        Mutate<-paste("factor(",IfElse,",levels=",paste(0,length(conds),sep = ':'),")",sep="")
         }
-    Mutate<-paste("factor(",IfElse,",levels=",paste(0,length(conds),sep = ':'),")",sep="")
     DataBase%>%
       mutate(eval(parse(text = Mutate)))->DataBase
     names(DataBase)[names(DataBase)=="eval(parse(text = Mutate))"] <- paste("Cat",Vars[i],sep="_")
