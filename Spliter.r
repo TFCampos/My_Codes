@@ -12,7 +12,7 @@ Spliter<-function(TrainDataBase,TestDataBase,Vars,Target,IDs_Var){
                     control=list(maxdepth = 2))
     
     Splits<-Tree.Vars$splits[,4] %>% sort
-    if(is.null(Splits)) Splits<-TrainDataBase%>%select(Vars[i])%>%as.matrix()%>%median()
+    if(is.null(Splits)) Splits<-TrainDataBase%>%select(Vars[i])%>%as.matrix()%>%median(na.rm=T)
     Split_Out[i,]<-c(Vars[i],paste(Splits,collapse = " - "))
     if (length(Splits)==1) {
       conds<-paste(Vars[i],Splits,sep = '<')
