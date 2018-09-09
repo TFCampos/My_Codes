@@ -1,11 +1,11 @@
-Spliter<-function(DataBase,Vars,Target,Weights){
+Spliter<-function(TrainDataBase,TestDataBase,Vars,Target,Weights){
   
   formulas<-paste(Target,Vars,sep ='~')
   for(i in 1:length(Vars))
   {
     Tree.Vars<-rpart(formulas[i],
                     weights = Weights,
-                    data=DataBase,
+                    data=TrainDataBase,
                     method = "class",
                     parms = list(split='information'),
                     control=list(maxdepth = 2))
@@ -34,9 +34,12 @@ Spliter<-function(DataBase,Vars,Target,Weights){
         IfElse <- paste(paste(IfElse,collapse  =','),paste(length(conds),paste(rep(")",times=length(conds)),collapse = ''),sep = ''),sep=',')
         Mutate<-paste("factor(",IfElse,",levels=",paste(0,length(conds),sep = ':'),")",sep="")
         }
-    DataBase%>%
-      mutate(eval(parse(text = Mutate)))->DataBase
-    names(DataBase)[names(DataBase)=="eval(parse(text = Mutate))"] <- paste("Cat",Vars[i],sep="_")
+    TrainDataBase%>%
+      mutate(eval(parse(text = Mutate)))->TrainDataBase
+    names(TrainDataBase)[names(TrainDataBase)=="eval(parse(text = Mutate))"] <- paste("Cat",Vars[i],sep="_")
+    TestDataBase%>%
+      mutate(eval(parse(text = Mutate)))->TestDataBase
+    names(TestDataBase)[names(TestDataBase)=="eval(parse(text = Mutate))"] <- paste("Cat",Vars[i],sep="_")
   }
-  return(DataBase)
+  return(list(Train=TrainDataBase,Test=TestDataBase))
 }
