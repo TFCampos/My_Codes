@@ -1,0 +1,113 @@
+###############################################
+##################Preambulo####################
+###############################################
+rm(list=ls())
+gc()
+###############################################
+############Preparação dos pacotes#############
+###############################################
+# Selecioanar uma CRAN mirror
+local({r <- getOption("repos")
+r["CRAN"] <- "https://vps.fmvz.usp.br/CRAN/"
+options(repos=r)})
+#Função que carrega e requere os pacotes em silêncio 
+Install_And_Load <- function(Required_Packages)
+{
+  Remaining_Packages <- Required_Packages[!(Required_Packages %in% installed.packages()[,"Package"])];
+  
+  if(length(Remaining_Packages)) 
+  {
+    install.packages(Remaining_Packages, dependencies = TRUE);
+  }
+  
+  for(package_name in Required_Packages)
+  {
+    library(package_name,character.only=TRUE,quietly=TRUE);
+    
+  }
+}
+Required_Packages =c('tidyverse','randomForest','caret','pROC','magrittr','doParallel');
+
+Install_And_Load(Required_Packages)
+
+options(scipen = 9999,digits = 10)
+##############################################################################################
+##############################################################################################
+##############################################################################################
+
+
+
+#########################
+###Carregando os dados###
+#########################
+
+(caminho<-'~/Bases/')
+(NomesBases<-list.files(caminho,'Base'))
+(Arquivos<-paste(caminho,NomesBases,sep=''))
+
+for(i in 1:length(NomesBases))
+{
+  assign(substr(NomesBases[i],1,nchar(NomesBases[i])-4),readRDS(Arquivos[i]))
+}
+
+(Formula<-readRDS('~/Bases/Formula.RDS'))
+
+strsplit(Formula,'~')[[1]][2] %>% strsplit('[+]') %>% unlist()->NomesVariaveis
+
+################################################
+###Definindo os hiperparametros do gridsearch###
+################################################
+
+(NFolds<-5)
+(Ntrees <- seq(50,500,by=50))
+(NodeSizes<-seq(100,1000,by=50))
+set.seed(6669)
+Base_Treino%<>%mutate(Folds=createFolds(y = TARGET,k=NFolds,list=F))
+MatrizAUC <- matrix(0,ncol=4,nrow=length(Ntrees)*length(NodeSizes)*NFolds)
+colnames(MatrizAUC) <- c('Folds','Ntrees','NodeSizes','AUC')
+
+
+################
+###GridSearch###
+################
+cl <- makeCluster(4)
+registerDoParallel(cl)
+i<-0
+indice <- 0
+repeat{
+  i<-i+1
+  j<-0
+  repeat{
+    j<-j+1
+    k<-0
+    repeat{
+      indice <- indice+1
+      k <- k+1
+      YTrain <- Base_Treino %>% filter(Folds!=i) %$% TARGET
+      XTrain <- Base_Treino %>% filter(Folds!=i) %>% select(NomesVariaveis)
+      YTeste <- Base_Treino %>% filter(Folds==i) %$% TARGET
+      XTeste <- Base_Treino %>% filter(Folds==i) %>% select(NomesVariaveis)
+      Mod_RF <- randomForest(x=XTrain,y=YTrain,ytest = YTeste,xtest = XTeste,
+                                     ntree = Ntrees[j],nodesize = NodeSizes[k],importance = T,
+                                     keep.forest = T,keep.inbag = T)
+      Prob_sucesso <- predict(Mod_RF,newdata=XTeste,type = 'prob')[,2]
+      AUC<-auc(response=YTeste,predictor = Prob_sucesso)
+      MatrizAUC[indice,]<-c(i,Ntrees[j],NodeSizes[k],AUC)
+      print(list("i",i))
+      print(list("j",j))
+      print(list("k",k))
+      if(k==length(NodeSizes)) break()
+    }
+    if(j==length(Ntrees)) break()
+  }
+  if(i==NFolds) break()
+}
+registerDoSEQ()
+stopCluster(cl)
+MatrizAUC%<>%as.data.frame(MatrizAUC)
+GridResults<-MatrizAUC %>% 
+  group_by(Ntrees,NodeSizes) %>% 
+  summarise(AUC_Medio=mean(AUC))
+
+GridResults %>% ggplot(aes(x=Ntrees,y=NodeSizes,size=AUC_Medio))+
+  geom_point()
