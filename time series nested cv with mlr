@@ -1,0 +1,113 @@
+###############################################
+##################Preambulo####################
+###############################################
+rm(list=ls())
+gc()
+###############################################
+############Preparação dos pacotes#############
+###############################################
+# Selecioanar uma CRAN mirror
+local({r <- getOption("repos")
+r["CRAN"] <- "https://vps.fmvz.usp.br/CRAN/"
+options(repos=r)})
+#Função que carrega e requere os pacotes em silêncio 
+Install_And_Load <- function(Required_Packages)
+{
+  Remaining_Packages <- Required_Packages[!(Required_Packages %in% installed.packages()[,"Package"])];
+  
+  if(length(Remaining_Packages)) 
+  {
+    install.packages(Remaining_Packages, dependencies = TRUE);
+  }
+  
+  for(package_name in Required_Packages)
+  {
+    library(package_name,character.only=TRUE,quietly=TRUE);
+    
+  }
+}
+Required_Packages =c("tidyverse","rpart","pROC","plotROC",
+                     'mlr','ranger','magrittr','data.table',
+                     'timetk','tidyquant','tibbletime','rsample','yardstick');
+
+Install_And_Load(Required_Packages)
+
+options(scipen = 9999,digits = 10)
+##############################################################################################
+##############################################################################################
+##############################################################################################
+
+#_____________________________
+####Carregando a base de dados
+#_____________________________
+serie <- datasets::sunspot.month %>%
+  tk_tbl() %>%
+  mutate(index = as_date(index)) %>%
+  as_tbl_time(index = index)
+
+serie <- serie[1:1000,]
+#_______________
+####Criando Lags
+#_______________
+
+serie %<>% mutate(value_lag1=lag(value,1),value_lag2=lag(value,2),value_lag3=lag(value,3),
+                     value_lag4=lag(value,4),value_lag5=lag(value,6),value_lag6=lag(value,6),
+                     value_lag7=lag(value,7),value_lag8=lag(value,8),value_lag9=lag(value,9))
+
+serie <- serie[-(1:9),]
+#_______________________________
+####Criando os SLICES das series
+#_______________________________
+
+W <- 10
+rolling_origin_resamples_outter <- rolling_origin(
+  serie,
+  initial    = W+2,
+  assess     = 2,
+  cumulative = FALSE,
+  skip       = 0
+)
+slc_max_out <- rolling_origin_resamples_outter$id %>% length() 
+#________________________
+####Time Series Nested CV
+#________________________
+
+slc_out <- 0
+
+###Outer loop
+repeat{
+  slc_out <- slc_out+1
+  rolling_origin_resamples_inner <-rolling_origin(
+    rolling_origin_resamples_outter$splits[[slc_out]] %>% training(),
+    initial    = 6,
+    assess     = 2,
+    cumulative = TRUE,
+    skip       = 0
+  ) 
+  slc_max_in <- rolling_origin_resamples_inner$id %>% length() 
+  slc_in <- 0
+  ###Inner loop
+  repeat{
+    slc_in <- slc_in+1
+    treino_in <- rolling_origin_resamples_inner$splits[[slc_in]] %>% training()
+    teste_in <- rolling_origin_resamples_inner$splits[[slc_in]] %>% testing()
+    ###Definindo a Task
+    tsk <- makeRegrTask(id = paste('NestedCV',paste('Out',slc_out,sep = ''),paste('In',slc_in,sep = ''),sep = '_'),
+                        data=treino_in %>% 
+                          select(-index) %>% 
+                          as.data.frame(),
+                        target = 'value',
+                        blocking = factor(c(rep(1,treino_in %>% nrow()-2),rep(2, 2))))
+    ###Definindo um Learner, a priori um elastic net.
+    EN.lrn <- makeLearner('regr.glmnet',standardize=F)
+    ###Definindo a estratégia de Cross-Validation. Definindo HoldOut
+    rdesc <- makeResampleDesc(method = "Holdout",blocking.cv=TRUE)
+    ps <- makeParamSet(makeNumericParam(id = 'alpha',lower = 0,upper = 1),
+                       makeNumericParam(id = 'lambda',lower = 1E-5,upper = 10))
+    tunegrid <-  makeTuneControlGrid(resolution = 100L)
+    res = tuneParams(EN.lrn, tsk, rdesc, par.set = ps,
+                     control = tunegrid)
+    if(slc_in==slc_max_in) break()
+  }
+  if(slc_out==slc_max_out) break()
+}
