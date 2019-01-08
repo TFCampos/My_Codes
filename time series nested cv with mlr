@@ -101,12 +101,19 @@ repeat{
     ###Definindo um Learner, a priori um elastic net.
     EN.lrn <- makeLearner('regr.glmnet',standardize=F)
     ###Definindo a estratégia de Cross-Validation. Definindo HoldOut
-    rdesc <- makeResampleDesc(method = "Holdout",blocking.cv=TRUE)
+    rdesc <- makeFixedHoldoutInstance(train.inds = 1:(nrow(treino_in)-2),
+                                      test.inds = (nrow(treino_in)-1):nrow(treino_in), 
+                                      size=(nrow(treino_in)))
     ps <- makeParamSet(makeNumericParam(id = 'alpha',lower = 0,upper = 1),
                        makeNumericParam(id = 'lambda',lower = 1E-5,upper = 10))
     tunegrid <-  makeTuneControlGrid(resolution = 100L)
+    parallelStartSocket(2)
+    ptm <- proc.time()
     res = tuneParams(EN.lrn, tsk, rdesc, par.set = ps,
                      control = tunegrid)
+    parallelStop()
+    print(proc.time() - ptm)
+    HPED <- generateHyperParsEffectData(res)
     if(slc_in==slc_max_in) break()
   }
   if(slc_out==slc_max_out) break()
